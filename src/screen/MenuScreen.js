@@ -10,9 +10,13 @@ import {
 } from "react-native";
 import { categories, menuItemsData } from "../data/menu";
 import { useCart } from "../context/CartContext";
+import { apiClient } from "../api/client";
 
 export default function MenuScreen() {
   const { dispatch } = useCart();
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [menuError, setMenuError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Starters");
@@ -27,6 +31,19 @@ export default function MenuScreen() {
   const renderCountRef = useRef(0);
 
   renderCountRef.current += 1;
+
+  useEffect(() => {
+    apiClient("/menu")
+      .then((items) => {
+        const normalized = items.map((item) => ({ ...item, id: item._id || item.id }));
+        setMenuItems(normalized);
+      })
+      .catch((error) => {
+        setMenuError(error.message);
+        setMenuItems(menuItemsData.map((item) => ({ ...item })));
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   // Manual Debounce using useRef
   const handleSearchChange = (text) => {
@@ -49,7 +66,7 @@ export default function MenuScreen() {
     };
   }, []);
 
-  const filteredItems = menuItemsData.filter((item) => {
+  const filteredItems = menuItems.filter((item) => {
     const matchesCategory = item.category === selectedCategory;
     const matchesSearch = item.name.toLowerCase().includes(debouncedQuery.toLowerCase());
     return matchesCategory && matchesSearch && item.isAvailable !== false;

@@ -1,52 +1,52 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { apiClient } from '../api/client';
 
-export default function OrderTrackingScreen({ route }) {
-  const [status, setStatus] = useState("Pending");
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+export default function OrderTrackingScreen() {
+  const [activeOrder, setActiveOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Status Progression Timer (Demo Timings)
+  const fetchLatestOrder = async () => {
+    try {
+      const orders = await apiClient('/orders/my');
+      if (orders && orders.length > 0) {
+        setActiveOrder(orders[0]); // Get most recent order
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    const statusTimer = setTimeout(() => setStatus("Preparing"), 10000);
-    const statusTimer2 = setTimeout(() => setStatus("Ready"), 20000);
-    const statusTimer3 = setTimeout(() => setStatus("Served"), 30000);
+    fetchLatestOrder();
 
-    return () => {
-      clearTimeout(statusTimer);
-      clearTimeout(statusTimer2);
-      clearTimeout(statusTimer3);
-    };
+    // Poll every 10 seconds for real-time status updates
+    const intervalId = setInterval(() => {
+      fetchLatestOrder();
+    }, 10000);
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
-  // Elapsed Time Counter
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
+  if (loading) return <ActivityIndicator size="large" />;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Order Status: {status}</Text>
-      <Text style={styles.timer}>Elapsed Time: {elapsedSeconds}s</Text>
-
-      <View style={styles.stepsContainer}>
-        <Text style={[styles.step, status === "Pending" && styles.activeStep]}>1. Pending</Text>
-        <Text style={[styles.step, status === "Preparing" && styles.activeStep]}>2. Preparing</Text>
-        <Text style={[styles.step, status === "Ready" && styles.activeStep]}>3. Ready</Text>
-        <Text style={[styles.step, status === "Served" && styles.activeStep]}>4. Served</Text>
-      </View>
+    <View style={{ padding: 20 }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Order Status</Text>
+      {activeOrder ? (
+        <View style={{ marginTop: 10 }}>
+          <Text>Order ID: {activeOrder._id}</Text>
+          <Text style={{ fontSize: 18, color: 'green', marginTop: 5 }}>
+            Status: {activeOrder.status}
+          </Text>
+          <Text>Total: PKR {activeOrder.total}</Text>
+        </View>
+      ) : (
+        <Text>No active orders found.</Text>
+      )}
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 10, color: "#FF6347" },
-  timer: { fontSize: 16, color: "#666", marginBottom: 30 },
-  stepsContainer: { width: "100%", paddingHorizontal: 40 },
-  step: { fontSize: 18, paddingVertical: 10, color: "#999" },
-  activeStep: { color: "#007BFF", fontWeight: "bold" },
-});
+};

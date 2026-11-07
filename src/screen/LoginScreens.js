@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { mockUsers } from "../data/users";
 import { useAuth } from "../context/AuthContext";
+import { apiClient } from "../api/client";
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -56,31 +56,33 @@ export default function LoginScreen({ navigation }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
     setIsSubmitting(true);
-
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
       if (isLoginMode) {
-        const foundUser = mockUsers.find(
-          (u) => u.email === email && u.password === password
-        );
-        if (foundUser) {
-          login(foundUser);
-          if (foundUser.role === "manager") {
-            navigation.replace("ManagerDashboard");
-          } else {
-            navigation.replace("MainApp");
-          }
+        const result = await apiClient("/auth/login", "POST", { email, password });
+        await login(result.user, result.token);
+        if (result.user.role === "manager") {
+          navigation.replace("ManagerDashboard");
         } else {
-          Alert.alert("Login Failed", "Invalid email or password.");
+          navigation.replace("MainApp");
         }
       } else {
+        await apiClient("/auth/register", "POST", {
+          name: fullName.trim(),
+          email,
+          password,
+          role,
+        });
         Alert.alert("Success", "Account created successfully! Please login.");
         setIsLoginMode(true);
       }
-    }, 1000);
+    } catch (error) {
+      Alert.alert(isLoginMode ? "Login Failed" : "Registration Failed", error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

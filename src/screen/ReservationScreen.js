@@ -39,10 +39,15 @@ export default function ReservationScreen() {
     setShowConfirmModal(true);
   };
 
-  const confirmBooking = () => {
-    createReservation(pendingBooking);
-    setShowConfirmModal(false);
-    Alert.alert("Success", "Table reserved successfully!");
+  const confirmBooking = async () => {
+    try {
+      await createReservation(pendingBooking);
+      setShowConfirmModal(false);
+      Alert.alert("Success", "Table reserved successfully!");
+    } catch (error) {
+      setShowConfirmModal(false);
+      Alert.alert("Reservation Failed", error.message);
+    }
   };
 
   return (

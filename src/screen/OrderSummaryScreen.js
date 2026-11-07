@@ -1,12 +1,14 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { useCart } from "../context/CartContext";
+import { apiClient } from "../api/client";
 
 const SERVICE_CHARGE_RATE = 0.05;
 const SALES_TAX_RATE = 0.15;
 
 export default function OrderSummaryScreen() {
-  const { state } = useCart();
+  const { state, dispatch } = useCart();
+  const [placing, setPlacing] = React.useState(false);
 
   const { subtotal, serviceCharge, salesTax, discount, grandTotal } = useMemo(() => {
     const sub = state.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -16,6 +18,31 @@ export default function OrderSummaryScreen() {
     const total = sub + sCharge + tax - disc;
     return { subtotal: sub, serviceCharge: sCharge, salesTax: tax, discount: disc, grandTotal: total };
   }, [state.items, state.discountPercent]);
+
+  const placeOrder = async () => {
+    if (state.items.length === 0) {
+      Alert.alert("Empty Cart", "Add at least one menu item before placing an order.");
+      return;
+    }
+
+    setPlacing(true);
+    try {
+      await apiClient("/orders", "POST", {
+        type: "Takeaway",
+        items: state.items.map((item) => ({
+          menuItemId: item._id || item.id,
+          quantity: item.quantity,
+          notes: item.notes || "",
+        })),
+      });
+      dispatch({ type: "CLEAR_CART" });
+      Alert.alert("Order Placed", "Your takeaway order has been submitted.");
+    } catch (error) {
+      Alert.alert("Order Failed", error.message);
+    } finally {
+      setPlacing(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -28,8 +55,10 @@ export default function OrderSummaryScreen() {
         <View style={styles.divider} />
         <Text style={styles.total}>Grand Total: ${grandTotal.toFixed(2)}</Text>
       </View>
-      <TouchableOpacity style={styles.btn} onPress={() => Alert.alert("Order", "Proceeding to checkout...")}>
-        <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>Confirm & Place Order</Text>
+      <TouchableOpacity style={styles.btn} onPress={placeOrder} disabled={placing}>
+        <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+          {placing ? "Placing Order..." : "Confirm & Place Order"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
